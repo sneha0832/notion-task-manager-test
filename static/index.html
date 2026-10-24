@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Taskspace — Notion Task Manager</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar"><div class="brand"><span class="logo">✦</span> taskspace</div><div class="nav active">▦ &nbsp; My tasks</div><div class="sidebar-bottom">Powered by <strong>Notion API</strong><br><small>Legacy API integration test</small></div></aside>
+    <main class="content">
+      <header><div><p class="eyebrow">YOUR WORKSPACE</p><h1>My tasks <span class="sparkle">✳</span></h1><p class="subtitle">Keep the important things moving.</p></div><div class="avatar">TS</div></header>
+      <section class="stats"><div class="stat"><span>Total tasks</span><strong id="total">—</strong></div><div class="stat"><span>In progress</span><strong id="progress">—</strong></div><div class="stat"><span>Completed</span><strong id="done">—</strong></div></section>
+      <section class="panel"><div class="panel-head"><div><h2>Task board</h2><p>Synced directly with your Notion database</p></div><button id="refresh" class="secondary">↻ Refresh</button></div>
+        <form id="task-form" class="task-form"><input id="title" required maxlength="200" placeholder="What needs to get done?" aria-label="Task title"><select id="priority" aria-label="Priority"><option>Medium</option><option>High</option><option>Low</option></select><button type="submit">+ Add task</button></form>
+        <div class="filters"><button class="filter active" data-filter="All">All tasks</button><button class="filter" data-filter="To Do">To do</button><button class="filter" data-filter="In Progress">In progress</button><button class="filter" data-filter="Done">Done</button></div>
+        <div id="message" role="status"></div><div id="tasks" class="task-list"><div class="empty">Loading tasks…</div></div>
+      </section><footer>API Guardian test repository · Notion-Version 2022-06-28</footer>
+    </main>
+  </div><script src="/static/app.js"></script>
+</body></html>

@@ -1,0 +1,1 @@
+"""Notion task manager application."""
