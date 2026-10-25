@@ -1,4 +1,4 @@
-"""Legacy Notion REST API adapter — intentional API Guardian migration target.
+"""Notion REST API adapter using data-source endpoints.
 
 This project pins Notion-Version: 2022-06-28 and uses the legacy
 POST /v1/databases/{database_id}/query route. The 2025-09-03 API
@@ -6,7 +6,7 @@ introduces data-source IDs and different query routes.
 """
 import httpx
 from fastapi import HTTPException
-from app.config import NOTION_API_BASE, NOTION_VERSION, notion_settings
+from app.config import NOTION_API_BASE, NOTION_DATA_SOURCE_ID, NOTION_VERSION, notion_settings
 
 
 class NotionClient:
@@ -18,6 +18,7 @@ class NotionClient:
             'Content-Type': 'application/json',
         }
         self.transport = transport
+        self.data_source_id = NOTION_DATA_SOURCE_ID or None
 
     async def request(self, method, path, *, json=None):
         try:
@@ -36,16 +37,40 @@ class NotionClient:
         except httpx.RequestError:
             raise HTTPException(status_code=502, detail='Could not connect to Notion API') from None
 
+    async def resolve_data_source_id(self):
+        """Resolve and cache the data source used by this task database."""
+        if self.data_source_id:
+            return self.data_source_id
+        database = await self.request('GET', f'/databases/{self.database_id}')
+        data_sources = database.get('data_sources') or []
+        if len(data_sources) != 1:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    'Set NOTION_DATA_SOURCE_ID to the data source that stores tasks '
+                    'when the database has multiple data sources.'
+                ),
+            )
+        self.data_source_id = data_sources[0].get('id')
+        if not self.data_source_id:
+            raise HTTPException(
+                status_code=502,
+                detail='Notion returned a database without a usable data source ID.',
+            )
+        return self.data_source_id
+
     async def query_database(self, start_cursor=None):
-        """Legacy endpoint intentionally preserved for migration testing."""
+        """Query the configured Notion data source."""
+        data_source_id = await self.resolve_data_source_id()
         body = {'page_size': 100, 'sorts': [{'timestamp': 'created_time', 'direction': 'descending'}]}
         if start_cursor:
             body['start_cursor'] = start_cursor
-        return await self.request('POST', f'/databases/{self.database_id}/query', json=body)
+        return await self.request('POST', f'/data_sources/{data_source_id}/query', json=body)
 
     async def create_page(self, properties):
+        data_source_id = await self.resolve_data_source_id()
         return await self.request('POST', '/pages', json={
-            'parent': {'database_id': self.database_id},
+            'parent': {'type': 'data_source_id', 'data_source_id': data_source_id},
             'properties': properties,
         })
 
