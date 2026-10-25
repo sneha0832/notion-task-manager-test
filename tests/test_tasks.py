@@ -8,6 +8,7 @@ from app.notion_client import NotionClient
 from app.task_service import list_tasks, create_task, update_task
 
 PAGE_ID = '11111111-1111-4111-8111-111111111111'
+DATA_SOURCE_ID = '33333333-3333-4333-8333-333333333333'
 
 def page(title='Test task', status='To Do', priority='Medium'):
     return {'id': PAGE_ID, 'url': 'https://notion.so/example', 'properties': {
@@ -22,13 +23,16 @@ def test_health_without_credentials():
     assert response.json()['status'] == 'ok'
 
 
-def test_legacy_notion_api_operations(monkeypatch):
+def test_data_source_notion_api_operations(monkeypatch):
     monkeypatch.setenv('NOTION_TOKEN', 'test-token-not-real')
     monkeypatch.setenv('NOTION_DATABASE_ID', '22222222-2222-4222-8222-222222222222')
+    monkeypatch.setattr('app.notion_client.NOTION_DATA_SOURCE_ID', None)
     calls = []
     def handler(request):
         calls.append((request.method, request.url.path, json.loads(request.content or b'{}')))
-        assert request.headers['Notion-Version'] == '2022-06-28'
+        if request.method == 'GET' and request.url.path == '/v1/databases/22222222-2222-4222-8222-222222222222':
+            return httpx.Response(200, json={'data_sources': [{'id': DATA_SOURCE_ID, 'name': 'Tasks'}]})
+        assert request.headers['Notion-Version'] == '2025-09-03'
         if request.url.path.endswith('/query'):
             return httpx.Response(200, json={'results': [page()], 'has_more': False, 'next_cursor': None})
         if request.method == 'POST':
@@ -44,10 +48,12 @@ def test_legacy_notion_api_operations(monkeypatch):
         assert updated['status'] == 'Done'
         await client.archive_page(PAGE_ID)
     asyncio.run(exercise())
-    assert calls[0][1] == '/v1/databases/22222222-2222-4222-8222-222222222222/query'
-    assert calls[1][1] == '/v1/pages'
-    assert calls[2][1] == f'/v1/pages/{PAGE_ID}'
-    assert calls[3][2] == {'archived': True}
+    assert calls[0][1] == '/v1/databases/22222222-2222-4222-8222-222222222222'
+    assert calls[1][1] == f'/v1/data_sources/{DATA_SOURCE_ID}/query'
+    assert calls[2][1] == '/v1/pages'
+    assert calls[2][2]['parent'] == {'type': 'data_source_id', 'data_source_id': DATA_SOURCE_ID}
+    assert calls[3][1] == f'/v1/pages/{PAGE_ID}'
+    assert calls[4][2] == {'archived': True}
 
 
 def test_request_validation():
